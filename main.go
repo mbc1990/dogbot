@@ -10,6 +10,8 @@ import "strings"
 import "math/rand"
 import "time"
 import "reflect"
+import "sort"
+import "strconv"
 
 type Configuration struct {
 	Token         string
@@ -60,7 +62,50 @@ func getRandomImageUrl(imgDir string) string {
 
 // Levenshtein distance between two strings
 func levenshtein(a string, b string) int {
-	return 0
+
+	// Handle empty string cases
+	if len(a) == 0 {
+		return len(b)
+	}
+	if len(b) == 0 {
+		return len(a)
+	}
+
+	// DP matrix
+	mat := make([][]int, len(a))
+	for i := range mat {
+		mat[i] = make([]int, len(b))
+	}
+
+	// Initialize base cases
+	for i := 0; i < len(a); i++ {
+		mat[i][0] = i
+	}
+	for i := 0; i < len(b); i++ {
+		mat[0][i] = i
+	}
+
+	// Fill out optimal edit distance matrix
+	for i := 1; i < len(a); i++ {
+		for j := 1; j < len(b); j++ {
+			cost := 0
+			if a[i] != b[j] {
+				cost = 1
+			}
+
+			// Compute cheapest way of getting to this index
+			above := mat[i-1][j] + 1
+			left := mat[i][j-1] + 1
+			diag := mat[i-1][j-1] + cost
+
+			// Sort and take idx 0 to get minimum
+			arr := []int{above, left, diag}
+			sort.Ints(arr)
+			min := arr[0]
+			mat[i][j] = min
+		}
+	}
+	return mat[len(a)-1][len(b)-1]
 }
 
 // Makes a guess at the requested category
@@ -70,6 +115,8 @@ func parseBreedQuery(query string, breeds []string) string {
 }
 
 func main() {
+	fmt.Println("Distance: " + strconv.Itoa(distance))
+
 	rand.Seed(time.Now().UnixNano())
 
 	initConf()
