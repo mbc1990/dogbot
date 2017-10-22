@@ -11,7 +11,6 @@ import "math/rand"
 import "time"
 import "reflect"
 import "sort"
-import "strconv"
 
 type Configuration struct {
 	Token         string
@@ -108,15 +107,37 @@ func levenshtein(a string, b string) int {
 	return mat[len(a)-1][len(b)-1]
 }
 
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
 // Makes a guess at the requested category
-func parseBreedQuery(query string, breeds []string) string {
-	// TODO: Calculate levenshtein distance between this string and all other strings
-	return query
+func parseBreedQuery(query string, breeds []string) (string, int) {
+	// If it's an exact match, don't bother distance calculations
+	if contains(breeds, query) {
+		return query, 0
+	}
+
+	var bestGuess string
+	minDist := 9999999
+
+	// If inexact, find the breed with minimum edit distance
+	for _, candidate := range breeds {
+		distance := levenshtein(query, candidate)
+		if distance < minDist {
+			minDist = distance
+			bestGuess = candidate
+		}
+	}
+	return bestGuess, minDist
 }
 
 func main() {
-	fmt.Println("Distance: " + strconv.Itoa(distance))
-
 	rand.Seed(time.Now().UnixNano())
 
 	initConf()
@@ -154,8 +175,9 @@ func main() {
 				// Strip @ id
 				breed := strings.Replace(m.Text, "<@"+id+"> ", "", -1)
 				fmt.Println("Attempting to fetch photo for breed: " + breed)
-				breed = parseBreedQuery(breed, breedsAvailable)
-				if imgDir, ok := breeds[breed]; ok {
+				breed, dist := parseBreedQuery(breed, breedsAvailable)
+				if dist < 10 {
+					imgDir := breeds[breed]
 					msg := getRandomImageUrl(imgDir)
 					m.Text = msg
 				} else {
