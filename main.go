@@ -12,18 +12,20 @@ import "time"
 import "reflect"
 
 type Configuration struct {
-	Token   string
-	RootDir string
+	Token         string
+	RootDir       string
+	Port          string
+	StaticBaseURL string
 }
 
 var Conf Configuration = Configuration{}
 
 func initConf() {
 	// Development
-	file, _ := os.Open("conf.json")
+	// file, _ := os.Open("conf.json")
 
 	// Production
-	// file, _ := os.Open("/root/dogbot/prod.conf.json")
+	file, _ := os.Open("/root/dogbot/prod.conf.json")
 	decoder := json.NewDecoder(file)
 	err := decoder.Decode(&Conf)
 	if err != nil {
@@ -46,17 +48,13 @@ func initBreeds(breeds map[string]string) {
 
 // Builds a url to a random image from the requested directory
 func getRandomImageUrl(imgDir string) string {
-	// Development
-	// base := "http://localhost:8080/static/"
-	// Production
-	base := "http://dogbot.freddysplant.com/static/"
 	files, err := ioutil.ReadDir(Conf.RootDir + "static/" + imgDir)
 	if err != nil {
 		log.Fatal(err)
 	}
 	idx := rand.Intn(len(files))
 	file := files[idx]
-	url := base + imgDir + "/" + file.Name()
+	url := Conf.StaticBaseURL + imgDir + "/" + file.Name()
 	return url
 }
 
@@ -80,11 +78,8 @@ func main() {
 
 	// Serve the images
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
-	// Development
-	// go http.ListenAndServe(":5555", nil)
 
-	// Production
-	go http.ListenAndServe(":8080", nil)
+	go http.ListenAndServe(Conf.Port, nil)
 
 	// Start an RTM session
 	ws, id := slackConnect(Conf.Token)
