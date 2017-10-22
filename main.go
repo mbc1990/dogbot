@@ -8,6 +8,7 @@ import "io/ioutil"
 import "log"
 import "strings"
 import "math/rand"
+import "time"
 
 type Configuration struct {
 	Token    string
@@ -56,6 +57,8 @@ func getImageUrl(breeds map[string]string, breed string) string {
 }
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	initConf()
 
 	// Serve the images
