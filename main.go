@@ -9,16 +9,21 @@ import "log"
 import "strings"
 import "math/rand"
 import "time"
+import "reflect"
 
 type Configuration struct {
-	Token    string
-	ImageDir string
+	Token   string
+	RootDir string
 }
 
 var Conf Configuration = Configuration{}
 
 func initConf() {
+	// Development
 	file, _ := os.Open("conf.json")
+
+	// Production
+	// file, _ := os.Open("/root/dogbot/prod.conf.json")
 	decoder := json.NewDecoder(file)
 	err := decoder.Decode(&Conf)
 	if err != nil {
@@ -27,7 +32,7 @@ func initConf() {
 }
 
 func initBreeds(breeds map[string]string) {
-	files, err := ioutil.ReadDir("static/")
+	files, err := ioutil.ReadDir(Conf.RootDir + "static/")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -39,14 +44,13 @@ func initBreeds(breeds map[string]string) {
 	}
 }
 
-// Returns a url to a random image of the input breed
-func getImageUrl(breeds map[string]string, breed string) string {
+// Builds a url to a random image from the requested directory
+func getRandomImageUrl(imgDir string) string {
 	// Development
 	// base := "http://localhost:8080/static/"
 	// Production
 	base := "http://dogbot.freddysplant.com/static/"
-	imgDir := breeds[breed]
-	files, err := ioutil.ReadDir("static/" + imgDir)
+	files, err := ioutil.ReadDir(Conf.RootDir + "static/" + imgDir)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -56,13 +60,26 @@ func getImageUrl(breeds map[string]string, breed string) string {
 	return url
 }
 
+// Levenshtein distance between two strings
+func levenshtein(a string, b string) int {
+	return 0
+}
+
+// Makes a guess at the requested category
+func parseBreedQuery(query string, breeds []string) string {
+	// TODO: Calculate levenshtein distance between this string and all other strings
+	return query
+}
+
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	initConf()
 
+	staticDir := Conf.RootDir + "static/"
+
 	// Serve the images
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
 	// Development
 	// go http.ListenAndServe(":5555", nil)
 
@@ -75,8 +92,11 @@ func main() {
 	// build the map of human readable breed names to source directory
 	var breeds map[string]string = make(map[string]string)
 	initBreeds(breeds)
-
-	fmt.Println(getImageUrl(breeds, "pug"))
+	keys := reflect.ValueOf(breeds).MapKeys()
+	breedsAvailable := make([]string, len(keys))
+	for i := 0; i < len(keys); i++ {
+		breedsAvailable[i] = keys[i].String()
+	}
 
 	for {
 		// read each incoming message
@@ -92,7 +112,13 @@ func main() {
 				// Strip @ id
 				breed := strings.Replace(m.Text, "<@"+id+"> ", "", -1)
 				fmt.Println("Attempting to fetch photo for breed: " + breed)
-				m.Text = getImageUrl(breeds, breed)
+				breed = parseBreedQuery(breed, breedsAvailable)
+				if imgDir, ok := breeds[breed]; ok {
+					msg := getRandomImageUrl(imgDir)
+					m.Text = msg
+				} else {
+					m.Text = "Sorry, I don't know that dog."
+				}
 				postMessage(ws, m)
 			}(m)
 		}
