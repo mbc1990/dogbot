@@ -91,7 +91,8 @@ func (db *Dogbot) Start() {
 				fmt.Println("Attempting to fetch photo for breed: " + query)
 				breed, dist := db.parseBreedQuery(query)
 				if dist < 10 {
-					msg := db.GetRandomImageUrl(breed)
+					url := db.GetRandomImageUrl(breed)
+					msg := "My interpretation: " + breed + "\n" + url
 					m.Text = msg
 				} else {
 					m.Text = "Sorry, I don't know that dog."
