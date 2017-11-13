@@ -30,5 +30,6 @@ func main() {
 		fmt.Println("error:", err)
 	}
 	dogbot := NewDogbot(&conf)
+	dogbot.GetRandomImageUrl("samoyed")
 	dogbot.Start()
 }

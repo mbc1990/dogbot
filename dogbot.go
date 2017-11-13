@@ -27,6 +27,7 @@ func (db *Dogbot) InitAvailableClasses() {
 	}
 }
 
+// Transforms user input into an available breed of dog
 func (db *Dogbot) parseBreedQuery(query string) (string, int) {
 	keys := reflect.ValueOf(db.AvailableClasses).MapKeys()
 	breeds := make([]string, len(keys))
@@ -53,6 +54,16 @@ func (db *Dogbot) parseBreedQuery(query string) (string, int) {
 	return bestGuess, minDist
 }
 
+// Returns a complete URL for the input breed
+func (db *Dogbot) GetRandomImageUrl(breed string) string {
+	class := db.AvailableClasses[breed]
+	images := db.Pg.GetClassMembers(class)
+	idx := rand.Intn(len(images))
+	filename := images[idx]
+	url := db.Conf.StaticBaseURL + "v2/" + filename
+	return url
+}
+
 // Starts the dogbot
 func (db *Dogbot) Start() {
 	rand.Seed(time.Now().UnixNano())
@@ -60,6 +71,7 @@ func (db *Dogbot) Start() {
 	// Serve the images
 	staticDir := db.Conf.RootDir + "static/"
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
+	go http.ListenAndServe(db.Conf.Port, nil)
 
 	// Connect to slack
 	ws, id := slackConnect(db.Conf.Token)
@@ -77,17 +89,13 @@ func (db *Dogbot) Start() {
 				// Strip @ id
 				query := strings.Replace(m.Text, "<@"+id+"> ", "", -1)
 				fmt.Println("Attempting to fetch photo for breed: " + query)
-
-				/*
-					breed, dist := parseBreedQuery(breed, breedsAvailable)
-					if dist < 10 {
-						imgDir := breeds[breed]
-						msg := getRandomImageUrl(imgDir)
-						m.Text = msg
-					} else {
-						m.Text = "Sorry, I don't know that dog."
-					}
-				*/
+				breed, dist := db.parseBreedQuery(query)
+				if dist < 10 {
+					msg := db.GetRandomImageUrl(breed)
+					m.Text = msg
+				} else {
+					m.Text = "Sorry, I don't know that dog."
+				}
 				postMessage(ws, m)
 			}(m)
 		}
