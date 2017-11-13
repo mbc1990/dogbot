@@ -1,190 +1,34 @@
 package main
 
-import "fmt"
 import "encoding/json"
-import "net/http"
+import "fmt"
 import "os"
-import "io/ioutil"
-import "log"
-import "strings"
-import "math/rand"
-import "time"
-import "reflect"
-import "sort"
 
 type Configuration struct {
 	Token         string
 	RootDir       string
 	Port          string
 	StaticBaseURL string
-}
-
-var Conf Configuration = Configuration{}
-
-func initConf() {
-	// Development
-	// file, _ := os.Open("conf.json")
-
-	// Production
-	file, _ := os.Open("/root/dogbot/prod.conf.json")
-	decoder := json.NewDecoder(file)
-	err := decoder.Decode(&Conf)
-	if err != nil {
-		fmt.Println("error:", err)
-	}
-}
-
-func initBreeds(breeds map[string]string) {
-	files, err := ioutil.ReadDir(Conf.RootDir + "static/")
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, file := range files {
-		spl := strings.Split(file.Name(), "-")
-		breed := strings.ToLower(spl[1])
-		breed = strings.Replace(breed, "_", " ", -1)
-		breeds[breed] = file.Name()
-	}
-}
-
-// Builds a url to a random image from the requested directory
-func getRandomImageUrl(imgDir string) string {
-	files, err := ioutil.ReadDir(Conf.RootDir + "static/" + imgDir)
-	if err != nil {
-		log.Fatal(err)
-	}
-	idx := rand.Intn(len(files))
-	file := files[idx]
-	url := Conf.StaticBaseURL + imgDir + "/" + file.Name()
-	return url
-}
-
-// Levenshtein distance between two strings
-func levenshtein(a string, b string) int {
-
-	// Handle empty string cases
-	if len(a) == 0 {
-		return len(b)
-	}
-	if len(b) == 0 {
-		return len(a)
-	}
-
-	// DP matrix
-	mat := make([][]int, len(a))
-	for i := range mat {
-		mat[i] = make([]int, len(b))
-	}
-
-	// Initialize base cases
-	for i := 0; i < len(a); i++ {
-		mat[i][0] = i
-	}
-	for i := 0; i < len(b); i++ {
-		mat[0][i] = i
-	}
-
-	// Fill out optimal edit distance matrix
-	for i := 1; i < len(a); i++ {
-		for j := 1; j < len(b); j++ {
-			cost := 0
-			if a[i] != b[j] {
-				cost = 1
-			}
-
-			// Compute cheapest way of getting to this index
-			above := mat[i-1][j] + 1
-			left := mat[i][j-1] + 1
-			diag := mat[i-1][j-1] + cost
-
-			// Sort and take idx 0 to get minimum
-			arr := []int{above, left, diag}
-			sort.Ints(arr)
-			min := arr[0]
-			mat[i][j] = min
-		}
-	}
-	return mat[len(a)-1][len(b)-1]
-}
-
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
-}
-
-// Makes a guess at the requested category
-func parseBreedQuery(query string, breeds []string) (string, int) {
-	// If it's an exact match, don't bother distance calculations
-	if contains(breeds, query) {
-		return query, 0
-	}
-
-	var bestGuess string
-	minDist := 9999999
-
-	// If inexact, find the breed with minimum edit distance
-	for _, candidate := range breeds {
-		distance := levenshtein(query, candidate)
-		if distance < minDist {
-			minDist = distance
-			bestGuess = candidate
-		}
-	}
-	return bestGuess, minDist
+	PGHost        string
+	PGPort        int
+	PGUser        string
+	PGPassword    string
+	PGDbname      string
 }
 
 func main() {
-	rand.Seed(time.Now().UnixNano())
-
-	initConf()
-
-	staticDir := Conf.RootDir + "static/"
-
-	// Serve the images
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
-
-	go http.ListenAndServe(Conf.Port, nil)
-
-	// Start an RTM session
-	ws, id := slackConnect(Conf.Token)
-
-	// build the map of human readable breed names to source directory
-	var breeds map[string]string = make(map[string]string)
-	initBreeds(breeds)
-	keys := reflect.ValueOf(breeds).MapKeys()
-	breedsAvailable := make([]string, len(keys))
-	for i := 0; i < len(keys); i++ {
-		breedsAvailable[i] = keys[i].String()
+	args := os.Args[1:]
+	if len(args) != 1 {
+		fmt.Println("Usage: ./main <absolute path to configuration file>")
+		return
 	}
-
-	for {
-		// read each incoming message
-		m, err := getMessage(ws)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// see if we're mentioned
-		if m.Type == "message" && strings.HasPrefix(m.Text, "<@"+id+">") {
-			fmt.Println(m)
-			go func(m Message) {
-				// Strip @ id
-				breed := strings.Replace(m.Text, "<@"+id+"> ", "", -1)
-				fmt.Println("Attempting to fetch photo for breed: " + breed)
-				breed, dist := parseBreedQuery(breed, breedsAvailable)
-				if dist < 10 {
-					imgDir := breeds[breed]
-					msg := getRandomImageUrl(imgDir)
-					m.Text = msg
-				} else {
-					m.Text = "Sorry, I don't know that dog."
-				}
-				postMessage(ws, m)
-			}(m)
-		}
+	file, _ := os.Open(args[0])
+	decoder := json.NewDecoder(file)
+	var conf = Configuration{}
+	err := decoder.Decode(&conf)
+	if err != nil {
+		fmt.Println("error:", err)
 	}
+	dogbot := NewDogbot(&conf)
+	dogbot.Start()
 }
