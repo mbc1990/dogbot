@@ -38,7 +38,6 @@ type Class struct {
 func (p *PostgresClient) GetAvailableClasses() []*Class {
 	sqlStatement := `
 	SELECT DISTINCT class_id, class_name FROM classifications`
-
 	rows, err := p.Db.Query(sqlStatement)
 	defer rows.Close()
 	if err != nil {
@@ -65,19 +64,32 @@ func (p *PostgresClient) GetAvailableClasses() []*Class {
 }
 
 // Return all images that belong to this class
-/*
-func (p *PostgresClient) GetClassMembers(classId string) string {
+func (p *PostgresClient) GetClassMembers(classId string) []string {
+	// TODO: classifications should probably be correctly indexed with a foreign key into images
+	sqlStatement := `
+	SELECT images.filename 
+	FROM classifications 
+	INNER JOIN images on classifications.image_id=images.image_id
+	WHERE class_id=$1`
+	rows, err := p.Db.Query(sqlStatement, classId)
+	defer rows.Close()
+	if err != nil {
+		panic(err)
+	}
 
+	ret := make([]string, 0)
+	var fname string
+	for rows.Next() {
+		if err := rows.Scan(&fname); err != nil {
+			log.Fatal(err)
+		}
+		ret = append(ret, fname)
+	}
+	if err := rows.Err(); err != nil {
+		log.Fatal(err)
+	}
+	return ret
 }
-*/
-
-// Store an interaction with dogbot
-// TODO: Implement this?
-/*
-func (p *PostgresClient) StoreQuery(user string, raw string, parsed string) {
-
-}
-*/
 
 func NewPostgresClient(pgHost string, pgPort int, pgUser string,
 	pgPassword string, pgDbname string) *PostgresClient {
