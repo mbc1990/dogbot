@@ -88,14 +88,24 @@ func (db *Dogbot) Start() {
 			go func(m Message) {
 				// Strip @ id
 				query := strings.Replace(m.Text, "<@"+id+"> ", "", -1)
-				fmt.Println("Attempting to fetch photo for breed: " + query)
-				breed, dist := db.parseBreedQuery(query)
-				if dist < 10 {
-					url := db.GetRandomImageUrl(breed)
-					msg := "My interpretation: " + breed + "\n" + url
-					m.Text = msg
+				if query == "classes" {
+					keys := reflect.ValueOf(db.AvailableClasses).MapKeys()
+					breeds := make([]string, len(keys))
+					for i := 0; i < len(keys); i++ {
+						breeds[i] = keys[i].String()
+					}
+					m.Text = strings.Join(breeds, "\n")
 				} else {
-					m.Text = "Sorry, I don't know that dog."
+
+					fmt.Println("Attempting to fetch photo for breed: " + query)
+					breed, dist := db.parseBreedQuery(query)
+					if dist < 10 {
+						url := db.GetRandomImageUrl(breed)
+						msg := "My interpretation: " + breed + "\n" + url
+						m.Text = msg
+					} else {
+						m.Text = "Sorry, I don't know that dog."
+					}
 				}
 				postMessage(ws, m)
 			}(m)
