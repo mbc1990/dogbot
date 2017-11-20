@@ -63,6 +63,27 @@ func (p *PostgresClient) GetAvailableClasses() []*Class {
 	return ret
 }
 
+func (p *PostgresClient) GetImageCount() int {
+	sqlStatement := `
+	SELECT count(*)
+	FROM images`
+	rows, err := p.Db.Query(sqlStatement)
+	defer rows.Close()
+	if err != nil {
+		panic(err)
+	}
+	var count int
+	for rows.Next() {
+		if err := rows.Scan(&count); err != nil {
+			log.Fatal(err)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		log.Fatal(err)
+	}
+	return count
+}
+
 // Return all images that belong to this class
 func (p *PostgresClient) GetClassMembers(classId string) []string {
 	// TODO: classifications should probably be correctly indexed with a foreign key into images

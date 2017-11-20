@@ -6,6 +6,7 @@ import "fmt"
 import "sort"
 import "reflect"
 import "strings"
+import "strconv"
 import "math/rand"
 import "net/http"
 
@@ -88,6 +89,7 @@ func (db *Dogbot) Start() {
 			go func(m Message) {
 				// Strip @ id
 				query := strings.Replace(m.Text, "<@"+id+"> ", "", -1)
+				fmt.Println(query)
 				if query == "classes" {
 					keys := reflect.ValueOf(db.AvailableClasses).MapKeys()
 					breeds := make([]string, len(keys))
@@ -95,8 +97,9 @@ func (db *Dogbot) Start() {
 						breeds[i] = keys[i].String()
 					}
 					m.Text = strings.Join(breeds, "\n")
+				} else if query == "stats" {
+					m.Text = strconv.Itoa(db.Pg.GetImageCount()) + " images available"
 				} else {
-
 					fmt.Println("Attempting to fetch photo for breed: " + query)
 					breed, dist := db.parseBreedQuery(query)
 					if dist < 10 {
