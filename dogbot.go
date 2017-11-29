@@ -19,7 +19,7 @@ type Dogbot struct {
 // Initializes the map of class name -> class id
 func (db *Dogbot) InitAvailableClasses() {
 	db.AvailableClasses = make(map[string]string)
-	available := db.Pg.GetAvailableClasses()
+	available := db.Pg.GetAvailableClasses(db.Conf.MinimumClassConfidence)
 	for _, class := range available {
 		spl := strings.Split(class.ClassName, ", ")
 		for _, s := range spl {
@@ -58,7 +58,7 @@ func (db *Dogbot) parseBreedQuery(query string) (string, int) {
 // Returns a complete URL for the input breed
 func (db *Dogbot) GetRandomImageUrl(breed string) string {
 	class := db.AvailableClasses[breed]
-	images := db.Pg.GetClassMembers(class)
+	images := db.Pg.GetClassMembers(class, db.Conf.MinimumClassConfidence)
 	idx := rand.Intn(len(images))
 	filename := images[idx]
 	url := db.Conf.StaticBaseURL + "v2/" + filename
@@ -85,11 +85,9 @@ func (db *Dogbot) Start() {
 
 		// see if we're mentioned
 		if m.Type == "message" && strings.HasPrefix(m.Text, "<@"+id+">") {
-			fmt.Println(m)
 			go func(m Message) {
 				// Strip @ id
 				query := strings.Replace(m.Text, "<@"+id+"> ", "", -1)
-				fmt.Println(query)
 				if query == "classes" {
 					keys := reflect.ValueOf(db.AvailableClasses).MapKeys()
 					breeds := make([]string, len(keys))

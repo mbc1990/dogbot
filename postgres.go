@@ -30,15 +30,18 @@ func (p *PostgresClient) GetDB() *sql.DB {
 }
 
 type Class struct {
-	ClassId   string
-	ClassName string
+	ClassId     string
+	ClassName   string
+	Probability float64
 }
 
 // Returns a list of queryable classes
-func (p *PostgresClient) GetAvailableClasses() []*Class {
+func (p *PostgresClient) GetAvailableClasses(minProb float64) []*Class {
 	sqlStatement := `
-	SELECT DISTINCT class_id, class_name FROM classifications`
-	rows, err := p.Db.Query(sqlStatement)
+	SELECT DISTINCT class_id, class_name FROM classifications
+	WHERE probability >= ($1)
+	`
+	rows, err := p.Db.Query(sqlStatement, minProb)
 	defer rows.Close()
 	if err != nil {
 		panic(err)
@@ -85,14 +88,16 @@ func (p *PostgresClient) GetImageCount() int {
 }
 
 // Return all images that belong to this class
-func (p *PostgresClient) GetClassMembers(classId string) []string {
+func (p *PostgresClient) GetClassMembers(classId string, minProb float64) []string {
 	// TODO: classifications should probably be correctly indexed with a foreign key into images
 	sqlStatement := `
-	SELECT images.filename 
+	SELECT images.filename
 	FROM classifications 
 	INNER JOIN images on classifications.image_id=images.image_id
-	WHERE class_id=$1`
-	rows, err := p.Db.Query(sqlStatement, classId)
+	WHERE class_id=$1
+	AND probability >= $2
+	`
+	rows, err := p.Db.Query(sqlStatement, classId, minProb)
 	defer rows.Close()
 	if err != nil {
 		panic(err)

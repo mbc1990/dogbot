@@ -5,15 +5,16 @@ import "fmt"
 import "os"
 
 type Configuration struct {
-	Token         string
-	RootDir       string
-	Port          string
-	StaticBaseURL string
-	PGHost        string
-	PGPort        int
-	PGUser        string
-	PGPassword    string
-	PGDbname      string
+	Token                  string
+	RootDir                string
+	Port                   string
+	StaticBaseURL          string
+	PGHost                 string
+	PGPort                 int
+	PGUser                 string
+	PGPassword             string
+	PGDbname               string
+	MinimumClassConfidence float64
 }
 
 func main() {
