@@ -87,11 +87,16 @@ func (p *PostgresClient) GetImageCount() int {
 	return count
 }
 
+type ClassMember struct {
+	Filename    string
+	Probability float64
+}
+
 // Return all images that belong to this class
-func (p *PostgresClient) GetClassMembers(classId string, minProb float64) []string {
+func (p *PostgresClient) GetClassMembers(classId string, minProb float64) []ClassMember {
 	// TODO: classifications should probably be correctly indexed with a foreign key into images
 	sqlStatement := `
-	SELECT images.filename
+	SELECT images.filename, classifications.probability
 	FROM classifications 
 	INNER JOIN images on classifications.image_id=images.image_id
 	WHERE class_id=$1
@@ -103,13 +108,18 @@ func (p *PostgresClient) GetClassMembers(classId string, minProb float64) []stri
 		panic(err)
 	}
 
-	ret := make([]string, 0)
+	ret := make([]ClassMember, 0)
 	var fname string
+	var probability float64
+
 	for rows.Next() {
-		if err := rows.Scan(&fname); err != nil {
+		if err := rows.Scan(&fname, &probability); err != nil {
 			log.Fatal(err)
 		}
-		ret = append(ret, fname)
+		mem := new(ClassMember)
+		mem.Filename = fname
+		mem.Probability = probability
+		ret = append(ret, *mem)
 	}
 	if err := rows.Err(); err != nil {
 		log.Fatal(err)

@@ -56,13 +56,15 @@ func (db *Dogbot) parseBreedQuery(query string) (string, int) {
 }
 
 // Returns a complete URL for the input breed
-func (db *Dogbot) GetRandomImageUrl(breed string) string {
+// TODO: Should this return a ClassMember instead of (string, float64)?
+func (db *Dogbot) GetRandomImageUrl(breed string) (string, float64) {
 	class := db.AvailableClasses[breed]
 	images := db.Pg.GetClassMembers(class, db.Conf.MinimumClassConfidence)
 	idx := rand.Intn(len(images))
-	filename := images[idx]
-	url := db.Conf.StaticBaseURL + "v2/" + filename
-	return url
+	mem := images[idx]
+	url := db.Conf.StaticBaseURL + "v2/" + mem.Filename
+	prob := mem.Probability
+	return url, prob
 }
 
 // Starts the dogbot
@@ -101,8 +103,9 @@ func (db *Dogbot) Start() {
 					fmt.Println("Attempting to fetch photo for breed: " + query)
 					breed, dist := db.parseBreedQuery(query)
 					if dist < 10 {
-						url := db.GetRandomImageUrl(breed)
-						msg := "My interpretation: " + breed + "\n" + url
+						url, probability := db.GetRandomImageUrl(breed)
+						pStr := FloatToString(probability)
+						msg := "My interpretation: " + breed + "\n" + "My confidence: " + pStr + "\n" + url
 						m.Text = msg
 					} else {
 						m.Text = "Sorry, I don't know that dog."
@@ -112,6 +115,11 @@ func (db *Dogbot) Start() {
 			}(m)
 		}
 	}
+}
+
+func FloatToString(input_num float64) string {
+	// to convert a float number to a string
+	return strconv.FormatFloat(input_num, 'f', 6, 64)
 }
 
 // Levenshtein distance between two strings
