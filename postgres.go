@@ -87,6 +87,27 @@ func (p *PostgresClient) GetImageCount() int {
 	return count
 }
 
+func (p *PostgresClient) GetAverageConfidence() float64 {
+	sqlStatement := `
+	SELECT AVG(probability)
+	FROM classifications`
+	rows, err := p.Db.Query(sqlStatement)
+	defer rows.Close()
+	if err != nil {
+		panic(err)
+	}
+	var prob float64
+	for rows.Next() {
+		if err := rows.Scan(&prob); err != nil {
+			log.Fatal(err)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		log.Fatal(err)
+	}
+	return prob
+}
+
 type ClassMember struct {
 	Filename    string
 	Probability float64

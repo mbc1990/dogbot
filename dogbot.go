@@ -72,9 +72,12 @@ func (db *Dogbot) Start() {
 	rand.Seed(time.Now().UnixNano())
 
 	// Serve the images
-	staticDir := db.Conf.RootDir + "static/"
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
-	go http.ListenAndServe(db.Conf.Port, nil)
+	if db.Conf.RunImageServer {
+		fmt.Println("Running image server")
+		staticDir := db.Conf.RootDir + "static/"
+		http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
+		go http.ListenAndServe(db.Conf.Port, nil)
+	}
 
 	// Connect to slack
 	ws, id := slackConnect(db.Conf.Token)
@@ -98,7 +101,8 @@ func (db *Dogbot) Start() {
 					}
 					m.Text = strings.Join(breeds, "\n")
 				} else if query == "stats" {
-					m.Text = strconv.Itoa(db.Pg.GetImageCount()) + " images available"
+					prob := FloatToString(db.Pg.GetAverageConfidence())
+					m.Text = strconv.Itoa(db.Pg.GetImageCount()) + " images available" + "\n" + prob + " average confidence"
 				} else {
 					fmt.Println("Attempting to fetch photo for breed: " + query)
 					breed, dist := db.parseBreedQuery(query)

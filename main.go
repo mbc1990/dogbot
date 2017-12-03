@@ -15,6 +15,7 @@ type Configuration struct {
 	PGPassword             string
 	PGDbname               string
 	MinimumClassConfidence float64
+	RunImageServer         bool
 }
 
 func main() {
