@@ -85,7 +85,7 @@ func (db *Dogbot) Start() {
 		// read each incoming message
 		m, err := getMessage(ws)
 		if err != nil {
-			log.Fatal(err)
+			log.Print(err)
 		}
 
 		// see if we're mentioned
