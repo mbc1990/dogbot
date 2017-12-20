@@ -9,6 +9,14 @@ import "strings"
 import "strconv"
 import "math/rand"
 import "net/http"
+import "github.com/prometheus/client_golang/prometheus"
+
+// Prometheus stuff
+// TODO: Consider moving to different file
+var levDists = prometheus.NewGauge(prometheus.GaugeOpts{
+	Name: "query_levenshtein_distance",
+	Help: "Levenshtein distance of the query to the closest match",
+})
 
 type Dogbot struct {
 	Conf             *Configuration
@@ -71,13 +79,21 @@ func (db *Dogbot) GetRandomImageUrl(breed string) (string, float64) {
 func (db *Dogbot) Start() {
 	rand.Seed(time.Now().UnixNano())
 
+	// Register Prometheus stuff
+	prometheus.MustRegister(levDists)
+
+	// Instrument Prometheus
+	http.Handle("/metrics", prometheus.Handler())
+
 	// Serve the images
 	if db.Conf.RunImageServer {
 		fmt.Println("Running image server")
 		staticDir := db.Conf.RootDir + "static/"
 		http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir))))
-		go http.ListenAndServe(db.Conf.Port, nil)
 	}
+
+	// We want to listen and serve no matter what, because we sill expose the metrics endpoint
+	go http.ListenAndServe(db.Conf.Port, nil)
 
 	// Connect to slack
 	ws, id := slackConnect(db.Conf.Token)
@@ -106,6 +122,10 @@ func (db *Dogbot) Start() {
 				} else {
 					fmt.Println("Attempting to fetch photo for breed: " + query)
 					breed, dist := db.parseBreedQuery(query)
+
+					// Report a distance data point
+					levDists.Add(float64(dist))
+
 					if dist < 10 {
 						url, probability := db.GetRandomImageUrl(breed)
 						pStr := FloatToString(probability)
