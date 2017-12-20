@@ -18,6 +18,14 @@ var levDists = prometheus.NewGauge(prometheus.GaugeOpts{
 	Help: "Levenshtein distance of the query to the closest match",
 })
 
+var imageRequests = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "image_request",
+		Help: "Dogbot image requests.",
+	},
+	[]string{"successful"},
+)
+
 type Dogbot struct {
 	Conf             *Configuration
 	Pg               *PostgresClient
@@ -81,6 +89,7 @@ func (db *Dogbot) Start() {
 
 	// Register Prometheus stuff
 	prometheus.MustRegister(levDists)
+	prometheus.MustRegister(imageRequests)
 
 	// Instrument Prometheus
 	http.Handle("/metrics", prometheus.Handler())
@@ -131,7 +140,9 @@ func (db *Dogbot) Start() {
 						pStr := FloatToString(probability)
 						msg := "My interpretation: " + breed + "\n" + "My confidence: " + pStr + "\n" + url
 						m.Text = msg
+						imageRequests.With(prometheus.Labels{"successful": "yes"}).Inc()
 					} else {
+						imageRequests.With(prometheus.Labels{"successful": "no"}).Inc()
 						m.Text = "Sorry, I don't know that dog."
 					}
 				}
