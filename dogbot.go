@@ -26,6 +26,11 @@ var imageRequests = prometheus.NewCounterVec(
 	[]string{"successful"},
 )
 
+var websocketReset = prometheus.NewCounter(prometheus.CounterOpts{
+	Name: "websocket_reset",
+	Help: "Websocket connection dies and we have to reconnect",
+})
+
 type Dogbot struct {
 	Conf             *Configuration
 	Pg               *PostgresClient
@@ -90,6 +95,7 @@ func (db *Dogbot) Start() {
 	// Register Prometheus stuff
 	prometheus.MustRegister(levDists)
 	prometheus.MustRegister(imageRequests)
+	prometheus.MustRegister(websocketReset)
 
 	// Instrument Prometheus
 	http.Handle("/metrics", prometheus.Handler())
@@ -110,7 +116,10 @@ func (db *Dogbot) Start() {
 		// read each incoming message
 		m, err := getMessage(ws)
 		if err != nil {
-			log.Fatal(err)
+			log.Print(err)
+			ws, id = slackConnect(db.Conf.Token)
+			websocketReset.Inc()
+			continue
 		}
 
 		// see if we're mentioned
