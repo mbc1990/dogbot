@@ -110,7 +110,7 @@ func (db *Dogbot) Start() {
 		// read each incoming message
 		m, err := getMessage(ws)
 		if err != nil {
-			log.Print(err)
+			log.Fatal(err)
 		}
 
 		// see if we're mentioned
